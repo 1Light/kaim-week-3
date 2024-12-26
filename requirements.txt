@@ -1,0 +1,22 @@
+# Core Libraries for Data Science & Machine Learning
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+statsmodels
+xgboost
+
+# Data Version Control
+dvc
+
+# For A/B Testing and Statistical Analysis
+scipy
+lifelines
+
+# For Model Interpretability
+shap
+lime
+
+# For Data Preprocessing
+category_encoders
