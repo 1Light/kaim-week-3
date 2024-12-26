@@ -6,12 +6,12 @@ from datetime import datetime
 
 # Load the cleaned data
 base_dir = os.path.abspath(os.path.dirname(__file__))  
-data_folder = os.path.join(base_dir, "../main_data")
+data_folder = os.path.join(base_dir, "../../main_data")
 cleaned_csv_file = os.path.join(data_folder, "cleaned_ml.csv")  # Updated cleaned file name
 data = pd.read_csv(cleaned_csv_file, low_memory=False)
 
 # Ensure the results directory exists
-results_dir = os.path.join(base_dir, "../results")
+results_dir = os.path.join(base_dir, "../../../results")
 os.makedirs(results_dir, exist_ok=True)
 
 # Create a subfolder for outlier detection results
@@ -32,8 +32,27 @@ numerical_columns = data.select_dtypes(include=['float64', 'int64']).columns
 # Create box plots for each numerical column to detect outliers
 for col in numerical_columns:
     plt.figure(figsize=(10, 6))
-    sns.boxplot(data=data, x=col)  # Removed the palette argument
+    sns.boxplot(data=data, x=col)
     plt.title(f"Box Plot of {col} - Outlier Detection")
     plt.xlabel(col)
     save_plot(plt, f"outlier_detection_{col}")
     plt.close()
+
+    # Compute and print outlier statistics
+    Q1 = data[col].quantile(0.25)  # First quartile (25th percentile)
+    Q3 = data[col].quantile(0.75)  # Third quartile (75th percentile)
+    IQR = Q3 - Q1  # Interquartile range
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+
+    outliers = data[(data[col] < lower_bound) | (data[col] > upper_bound)]
+    print(f"\n=== Outlier Analysis for {col} ===")
+    print(f"- Q1 (25th percentile): {Q1}")
+    print(f"- Q3 (75th percentile): {Q3}")
+    print(f"- IQR (Interquartile Range): {IQR}")
+    print(f"- Lower Bound for Outliers: {lower_bound}")
+    print(f"- Upper Bound for Outliers: {upper_bound}")
+    print(f"- Number of Outliers Detected: {outliers.shape[0]}")
+    print("- Suggestions:")
+    print("  * Investigate the context of detected outliers to determine their validity.")
+    print("  * Consider handling outliers using transformations, filtering, or robust models if needed.")

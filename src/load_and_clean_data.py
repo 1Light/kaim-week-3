@@ -39,8 +39,15 @@ data['CapitalOutstanding'] = pd.to_numeric(data['CapitalOutstanding'], errors='c
 
 # Convert 'TransactionMonth' and 'VehicleIntroDate' to datetime
 data['TransactionMonth'] = pd.to_datetime(data['TransactionMonth'], errors='coerce')
+
 # Convert 'VehicleIntroDate' to datetime with the correct format
-data['VehicleIntroDate'] = pd.to_datetime(data['VehicleIntroDate'], format='%m/%Y', errors='coerce')
+def parse_vehicle_intro_date(date_value):
+    # Try parsing the 'Month-Year' format (e.g., "June-02")
+    try:
+        return pd.to_datetime(data['VehicleIntroDate'], format='%m/%Y', errors='coerce')
+    except Exception:
+        # If that fails, try parsing general datetime formats (e.g., "2/1/2014 12:00:00 AM")
+        return pd.to_datetime(date_value, errors='coerce')
 
 # Convert numeric-like columns to integers where appropriate
 integer_columns = ['Cylinders', 'NumberOfDoors']
