@@ -49,7 +49,7 @@ plt.close()
 
 # 3. Bar plot comparing the distribution of Auto Make (Make) across different PostalCodes
 plt.figure(figsize=(12, 8))
-sns.countplot(data=data, x='Make', hue='PostalCode', palette='Set2')
+sns.countplot(data=data, x='make', hue='PostalCode', palette='Set2')
 plt.title("Comparison of Auto Make by PostalCode")
 plt.xlabel("Auto Make")
 plt.ylabel("Count")
