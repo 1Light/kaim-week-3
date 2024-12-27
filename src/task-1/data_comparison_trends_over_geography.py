@@ -27,7 +27,18 @@ def save_plot(fig, plot_name):
     fig.savefig(plot_filename)
     print(f"Plot saved as: {plot_filename}")
 
+# Function to print summary statistics
+def print_summary_stats(df, column_name):
+    print(f"\n=== Summary Statistics for {column_name} ===")
+    print(f"Mean of {column_name}: {df[column_name].mean()}")
+    print(f"Median of {column_name}: {df[column_name].median()}")
+    print(f"Standard Deviation of {column_name}: {df[column_name].std()}")
+    print(f"Min value of {column_name}: {df[column_name].min()}")
+    print(f"Max value of {column_name}: {df[column_name].max()}")
+    print(f"Count of unique values in {column_name}: {df[column_name].nunique()}")
+
 # Data Comparison - Trends Over Geography
+
 # 1. Bar plot comparing the distribution of insurance cover type by PostalCode (ZipCode)
 plt.figure(figsize=(12, 8))
 sns.countplot(data=data, x='CoverType', hue='PostalCode', palette='Set1')
@@ -44,6 +55,7 @@ cover_type_summary = data.groupby('CoverType')['PostalCode'].nunique().reset_ind
 print("- Number of unique PostalCodes for each insurance cover type:")
 print(cover_type_summary)
 print("- Observations: High variation in PostalCodes for certain cover types could suggest regional preferences.")
+print_summary_stats(data, 'CoverType')
 
 # 2. Line plot comparing the change in TotalPremium across different PostalCodes over time (based on TransactionMonth)
 plt.figure(figsize=(12, 8))
@@ -62,6 +74,7 @@ premium_trend_summary = data.groupby('TransactionMonth')['TotalPremium'].mean()
 print("- Average TotalPremium by month (across all PostalCodes):")
 print(premium_trend_summary)
 print("- Observations: Peaks or dips could reflect seasonal patterns.")
+print_summary_stats(data, 'TotalPremium')
 
 # 3. Bar plot comparing the distribution of Auto Make (Make) across different PostalCodes
 plt.figure(figsize=(12, 8))
@@ -79,3 +92,12 @@ auto_make_summary = data['make'].value_counts().head(5)
 print("- Top 5 most common Auto Makes:")
 print(auto_make_summary)
 print("- Observations: The most common makes may indicate market dominance in certain regions.")
+print_summary_stats(data, 'make')
+
+# Additional Insights
+print("\n=== General Data Insights ===")
+print(f"Total rows in the dataset: {data.shape[0]}")
+print(f"Total columns in the dataset: {data.shape[1]}")
+print(f"Columns in the dataset: {data.columns.tolist()}")
+print(f"Missing values per column: \n{data.isnull().sum()}")
+print(f"Data types of each column: \n{data.dtypes}")
