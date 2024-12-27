@@ -3,8 +3,8 @@ import pandas as pd
 
 # Define file paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
-main_data_dir = os.path.join(current_dir, "../main_data")
-results_dir = os.path.join(current_dir, "../results")
+main_data_dir = os.path.join(current_dir, "../../main_data")
+results_dir = os.path.join(current_dir, "../../../results")
 data_file = os.path.join(main_data_dir, "cleaned_ml.csv")
 
 # Ensure results directory exists
@@ -17,7 +17,7 @@ os.makedirs(data_summarization_dir, exist_ok=True)
 # Load the data
 print(f"Loading data from {data_file}...")
 try:
-    data = pd.read_csv(data_file)
+    data = pd.read_csv(data_file, low_memory=False)
     print("Data loaded successfully!")
 except FileNotFoundError:
     print(f"Error: File not found at {data_file}")

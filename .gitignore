@@ -1,4 +1,8 @@
 venv/
 data/
-main_data/
+*.csv
 results/
+storage/
+
+# Don't ignore DVC files
+!*.dvc
