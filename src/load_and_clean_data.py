@@ -1,87 +1,127 @@
-import pandas as pd
 import os
+import pandas as pd
 
-# Define absolute paths
-base_dir = os.path.abspath(os.path.dirname(__file__))  
-data_folder = os.path.join(base_dir, "../main_data")   
-csv_file = os.path.join(data_folder, "ml.csv")         
+class DataCleaner:
+    def __init__(self, base_dir, input_filename="ml.csv", output_filename="cleaned_ml.csv"):
+        """
+        Initializes the DataCleaner object with paths for input and output files.
+        
+        :param base_dir: The base directory for relative paths.
+        :param input_filename: The name of the input CSV file to load.
+        :param output_filename: The name of the output CSV file after cleaning.
+        """
+        self.base_dir = os.path.abspath(base_dir)
+        self.data_folder = os.path.join(self.base_dir, "../main_data")
+        self.input_file = os.path.join(self.data_folder, input_filename)
+        self.output_file = os.path.join(self.data_folder, output_filename)
+        self.data = None
 
-# Load the CSV file into a DataFrame
-print(f"Loading data from {csv_file}...")
-data = pd.read_csv(csv_file, low_memory=False)  # low_memory=False avoids dtype warnings during import
-print("Data loaded successfully!")
+    def load_data(self):
+        """
+        Loads the data from the input CSV file into a pandas DataFrame.
+        
+        :return: The loaded data as a pandas DataFrame.
+        """
+        try:
+            print(f"Loading data from {self.input_file}...")
+            self.data = pd.read_csv(self.input_file, low_memory=False)
+            print("Data loaded successfully!")
+        except FileNotFoundError:
+            print(f"Error: The file {self.input_file} does not exist. Please ensure the path is correct.")
+        except Exception as e:
+            print(f"An error occurred while loading data: {e}")
 
-# Data Quality Assessment:
-# Check for missing values
-print("\nData Quality Assessment: Checking for missing values...")
-missing_data = data.isnull().sum()  # Count missing values per column
-missing_percentage = (missing_data / len(data)) * 100  # Percentage of missing values
+    def assess_data_quality(self):
+        """
+        Performs a data quality assessment, including checking for missing values and empty columns.
+        """
+        if self.data is not None:
+            print("\nData Quality Assessment: Checking for missing values...")
+            missing_data = self.data.isnull().sum()
+            missing_percentage = (missing_data / len(self.data)) * 100
+            missing_summary = pd.DataFrame({'Missing Values': missing_data, 'Percentage': missing_percentage})
+            missing_summary = missing_summary[missing_summary['Missing Values'] > 0]
 
-# Create a DataFrame to show missing values and their percentage
-missing_summary = pd.DataFrame({'Missing Values': missing_data, 'Percentage': missing_percentage})
-missing_summary = missing_summary[missing_summary['Missing Values'] > 0]  # Only show columns with missing data
+            if not missing_summary.empty:
+                print("\nColumns with Missing Data:")
+                print(missing_summary)
+            else:
+                print("\nNo missing values detected.")
 
-if not missing_summary.empty:
-    print("\nColumns with Missing Data:")
-    print(missing_summary)
-else:
-    print("\nNo missing values detected.")
+            empty_columns = self.data.columns[self.data.isnull().all()]
+            print(f"\nEmpty Columns (all values are NaN): {list(empty_columns)}")
+            self.data = self.data.drop(columns=empty_columns)
 
-# Check for empty columns (columns where all values are NaN)
-empty_columns = data.columns[data.isnull().all()]
-print(f"\nEmpty Columns (all values are NaN): {list(empty_columns)}")
+    def clean_data(self):
+        """
+        Cleans the data by converting data types, filling missing values, and standardizing values.
+        """
+        if self.data is not None:
+            # Convert 'CapitalOutstanding' to numeric
+            self.data['CapitalOutstanding'] = pd.to_numeric(self.data['CapitalOutstanding'], errors='coerce')
 
-# Drop the empty columns
-data = data.drop(columns=empty_columns)
+            # Convert 'TransactionMonth' and 'VehicleIntroDate' to datetime
+            self.data['TransactionMonth'] = pd.to_datetime(self.data['TransactionMonth'], errors='coerce')
+            
+            # Handle 'VehicleIntroDate' specifically
+            def parse_vehicle_intro_date(date_value):
+                try:
+                    return pd.to_datetime(self.data['VehicleIntroDate'], format='%m/%Y', errors='coerce')
+                except Exception:
+                    return pd.to_datetime(date_value, errors='coerce')
+            
+            # Convert numeric-like columns to integers
+            integer_columns = ['Cylinders', 'NumberOfDoors']
+            for col in integer_columns:
+                self.data[col] = pd.to_numeric(self.data[col], downcast='integer', errors='coerce')
 
-# Convert 'CapitalOutstanding' to numeric (coercing errors)
-data['CapitalOutstanding'] = pd.to_numeric(data['CapitalOutstanding'], errors='coerce')
+            # Convert postal codes to strings
+            self.data['PostalCode'] = self.data['PostalCode'].astype(str)
 
-# Convert 'TransactionMonth' and 'VehicleIntroDate' to datetime
-data['TransactionMonth'] = pd.to_datetime(data['TransactionMonth'], errors='coerce')
+            # Convert boolean-like columns to booleans
+            boolean_columns = [
+                'AlarmImmobiliser', 'TrackingDevice', 'CapitalOutstanding', 'NewVehicle', 
+                'WrittenOff', 'Rebuilt', 'Converted', 'CrossBorder'
+            ]
+            for col in boolean_columns:
+                self.data[col] = self.data[col].astype(str).str.strip().str.lower().map({'yes': True, 'no': False})
 
-# Convert 'VehicleIntroDate' to datetime with the correct format
-def parse_vehicle_intro_date(date_value):
-    # Try parsing the 'Month-Year' format (e.g., "June-02")
-    try:
-        return pd.to_datetime(data['VehicleIntroDate'], format='%m/%Y', errors='coerce')
-    except Exception:
-        # If that fails, try parsing general datetime formats (e.g., "2/1/2014 12:00:00 AM")
-        return pd.to_datetime(date_value, errors='coerce')
+            # Apply consistent formatting to object columns
+            for col, dtype in self.data.dtypes.items():
+                if dtype == "object":
+                    self.data[col] = self.data[col].astype(str).str.strip()
+                    self.data[col] = self.data[col].str.capitalize()
 
-# Convert numeric-like columns to integers where appropriate
-integer_columns = ['Cylinders', 'NumberOfDoors']
-for col in integer_columns:
-    data[col] = pd.to_numeric(data[col], downcast='integer', errors='coerce')
+            # Fill missing values for categorical and numerical columns
+            for col in self.data.columns:
+                if self.data[col].dtype == 'object':
+                    mode_value = self.data[col].mode()[0]
+                    self.data[col] = self.data[col].fillna(mode_value)
+                elif self.data[col].dtype in ['float64', 'int64']:
+                    median_value = self.data[col].median()
+                    self.data[col] = self.data[col].fillna(median_value)
 
-# Convert postal codes to strings
-data['PostalCode'] = data['PostalCode'].astype(str)
+    def save_cleaned_data(self):
+        """
+        Saves the cleaned data to the output CSV file.
+        """
+        if self.data is not None:
+            self.data.to_csv(self.output_file, index=False)
+            print(f"Cleaned data saved to {self.output_file}!")
 
-# Convert boolean-like columns to actual booleans
-boolean_columns = [
-    'AlarmImmobiliser', 'TrackingDevice', 'CapitalOutstanding', 'NewVehicle', 
-    'WrittenOff', 'Rebuilt', 'Converted', 'CrossBorder'
-]
-for col in boolean_columns:
-    # First, ensure the column is treated as a string, then strip and convert to lower case
-    data[col] = data[col].astype(str).str.strip().str.lower().map({'yes': True, 'no': False})
+    def process(self):
+        """
+        Orchestrates the entire process of loading, assessing, cleaning, and saving the data.
+        """
+        self.load_data()
+        self.assess_data_quality()
+        self.clean_data()
+        self.save_cleaned_data()
 
-# Apply consistent formatting to object columns (capitalize first letter of each word)
-for col, dtype in data.dtypes.items():
-    if dtype == "object":
-        data[col] = data[col].astype(str).str.strip()  # Remove leading/trailing whitespace
-        data[col] = data[col].str.capitalize()  # Standardize text (capitalize first letter of each word)
+# Example usage of the DataCleaner class
+if __name__ == "__main__":
+    # Initialize the DataCleaner object
+    cleaner = DataCleaner(base_dir=os.path.dirname(__file__))
 
-# Fill missing values (if any) for categorical columns with mode (most frequent value) and for numerical columns with median
-for col in data.columns:
-    if data[col].dtype == 'object':  # For categorical columns
-        mode_value = data[col].mode()[0]
-        data[col] = data[col].fillna(mode_value)
-    elif data[col].dtype in ['float64', 'int64']:  # For numerical columns
-        median_value = data[col].median()
-        data[col] = data[col].fillna(median_value)
-
-# Optionally, save cleaned data to a new CSV for verification
-cleaned_csv_file = os.path.join(data_folder, "cleaned_ml.csv")
-data.to_csv(cleaned_csv_file, index=False)
-print(f"Cleaned data saved to {cleaned_csv_file}!")
+    # Perform the data processing
+    cleaner.process()

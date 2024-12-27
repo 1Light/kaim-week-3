@@ -4,95 +4,101 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 
-pd.set_option('display.max_columns', None)  # Show all columns
+# Set visualization style
+sns.set(style="whitegrid")
 
-# Load the cleaned data
-base_dir = os.path.abspath(os.path.dirname(__file__))  
-data_folder = os.path.join(base_dir, "../../main_data")
-cleaned_csv_file = os.path.join(data_folder, "cleaned_ml.csv")  # Updated cleaned file name
-data = pd.read_csv(cleaned_csv_file, low_memory=False)
+class DataVisualizer:
+    def __init__(self, data_path, results_dir):
+        """
+        Initializes the DataVisualizer object with the dataset and results directory.
 
-# Ensure the results directory exists
-results_dir = os.path.join(base_dir, "../../../results")
-os.makedirs(results_dir, exist_ok=True)
+        :param data_path: Path to the cleaned data CSV file.
+        :param results_dir: Path to the directory where results will be saved.
+        """
+        self.data = pd.read_csv(data_path, low_memory=False)
+        self.results_dir = results_dir
 
-# Create a subfolder for data_comparision results
-data_comparision_dir = os.path.join(results_dir, "data_comparision")
-os.makedirs(data_comparision_dir, exist_ok=True)
+        # Ensure the results directory exists
+        os.makedirs(self.results_dir, exist_ok=True)
 
-# Function to save plots with proper naming
-def save_plot(fig, plot_name):
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    plot_filename = os.path.join(data_comparision_dir, f"{plot_name}_{timestamp}.png")  # Save in the data_comparision subfolder
-    fig.savefig(plot_filename)
-    print(f"Plot saved as: {plot_filename}")
+        # Create a subfolder for visualization results
+        self.visualization_dir = os.path.join(self.results_dir, "visualizations")
+        os.makedirs(self.visualization_dir, exist_ok=True)
 
-# Function to print statistical summaries
-def print_summary_stats(df, column_name):
-    print(f"\n=== Summary Statistics for {column_name} ===")
-    print(f"Mean of {column_name}: {df[column_name].mean()}")
-    print(f"Median of {column_name}: {df[column_name].median()}")
-    print(f"Standard Deviation of {column_name}: {df[column_name].std()}")
-    print(f"Min value of {column_name}: {df[column_name].min()}")
-    print(f"Max value of {column_name}: {df[column_name].max()}")
-    print(f"Count of unique values in {column_name}: {df[column_name].nunique()}")
+    def save_plot(self, fig, plot_name):
+        """
+        Saves a plot to the results directory with a timestamp.
 
-# Data Comparison - Trends Over Geography
+        :param fig: The matplotlib figure to save.
+        :param plot_name: The name for the plot file.
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        plot_filename = os.path.join(self.visualization_dir, f"{plot_name}_{timestamp}.png")
+        fig.savefig(plot_filename)
+        print(f"Plot saved as: {plot_filename}")
 
-# 1. Bar plot comparing the distribution of insurance cover type by PostalCode (ZipCode)
-plt.figure(figsize=(12, 8))
-sns.countplot(data=data, x='CoverType', hue='PostalCode', palette='Set1')
-plt.title("Comparison of Insurance Cover Type by PostalCode")
-plt.xlabel("Insurance Cover Type")
-plt.ylabel("Count")
-plt.legend(loc='upper left')  # Specify legend location
-save_plot(plt, "insurance_cover_type_by_postalcode")
-plt.close()
+    def plot_totalpremium_distribution(self):
+        """
+        Creates a histogram with KDE for the distribution of TotalPremium.
+        """
+        plt.figure(figsize=(10, 6))
+        sns.histplot(self.data['TotalPremium'], kde=True, color='blue', bins=30)
+        plt.title("Distribution of Total Premium", fontsize=14)
+        plt.xlabel("Total Premium", fontsize=12)
+        plt.ylabel("Frequency", fontsize=12)
+        self.save_plot(plt, "totalpremium_distribution")
+        plt.close()
 
-# Summarized insights for CoverType distribution by PostalCode
-cover_type_summary = data.groupby(['PostalCode', 'CoverType']).size().unstack(fill_value=0)
-print("\n=== Key Insights: Insurance Cover Type Distribution by PostalCode ===")
-print("- High concentrations of specific cover types were observed in certain postal codes.")
-print("- These patterns could help in tailoring marketing or assessing regional risk factors.")
-print_summary_stats(data, 'CoverType')
+    def plot_correlation_heatmap(self):
+        """
+        Creates a correlation heatmap for numeric columns in the dataset.
+        """
+        numeric_cols = self.data.select_dtypes(include='number').columns
+        correlation_matrix = self.data[numeric_cols].corr()
 
-# 2. Line plot comparing the change in TotalPremium across different PostalCodes over time (based on TransactionMonth)
-plt.figure(figsize=(12, 8))
-sns.lineplot(data=data, x='TransactionMonth', y='TotalPremium', hue='PostalCode', marker='o')
-plt.title("Change in TotalPremium by PostalCode over Time")
-plt.xlabel("Transaction Month")
-plt.ylabel("Total Premium")
-plt.xticks(rotation=45)  # Rotate month labels for better readability
-plt.legend(loc='upper left')  # Specify legend location
-save_plot(plt, "totalpremium_by_postalcode_over_time")
-plt.close()
+        plt.figure(figsize=(10, 6))
+        sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
+        plt.title("Correlation Heatmap of Numeric Variables", fontsize=14)
+        self.save_plot(plt, "correlation_heatmap")
+        plt.close()
 
-# Summarized insights for TotalPremium trends
-print("\n=== Key Insights: Total Premium Trends by PostalCode Over Time ===")
-print("- Seasonal peaks and dips were identified in TotalPremium values.")
-print("- These trends provide insights into pricing strategies and regional demand fluctuations.")
-print_summary_stats(data, 'TotalPremium')
+    def plot_pairwise_relationships(self):
+        """
+        Creates a pairplot for selected numeric features, colored by CoverType.
+        """
+        selected_features = ['TotalPremium', 'Age', 'VehicleAge', 'AnnualMileage']
+        sns.pairplot(self.data[selected_features], hue="CoverType", palette="Set2", markers=["o", "s", "D"])
+        plt.suptitle("Pairwise Relationships of Key Features by CoverType", fontsize=14)
+        self.save_plot(plt, "pairwise_relationships_by_cover_type")
+        plt.close()
 
-# 3. Bar plot comparing the distribution of Auto Make (Make) across different PostalCodes
-plt.figure(figsize=(12, 8))
-sns.countplot(data=data, x='make', hue='PostalCode', palette='Set2')
-plt.title("Comparison of Auto Make by PostalCode")
-plt.xlabel("Auto Make")
-plt.ylabel("Count")
-plt.legend(loc='upper left')  # Specify legend location
-save_plot(plt, "auto_make_by_postalcode")
-plt.close()
+    def display_eda_insights(self):
+        """
+        Displays general insights from the Exploratory Data Analysis (EDA).
+        """
+        print("\n=== Key Insights from EDA ===")
+        print(f"Total rows in the dataset: {self.data.shape[0]}")
+        print(f"Total columns in the dataset: {self.data.shape[1]}")
+        print(f"Columns in the dataset: {self.data.columns.tolist()}")
+        print(f"Missing values per column: \n{self.data.isnull().sum()}")
+        print(f"Data types of each column: \n{self.data.dtypes}")
 
-# Summarized insights for Auto Make distribution by PostalCode
-print("\n=== Key Insights: Auto Make Distribution by PostalCode ===")
-print("- Popular car makes vary across postal codes, reflecting regional preferences.")
-print("- This data can assist in inventory planning and localized advertising strategies.")
-print_summary_stats(data, 'make')
 
-# Additional Insights
-print("\n=== General Data Insights ===")
-print(f"Total rows in the dataset: {data.shape[0]}")
-print(f"Total columns in the dataset: {data.shape[1]}")
-print(f"Columns in the dataset: {data.columns.tolist()}")
-print(f"Missing values per column: \n{data.isnull().sum()}")
-print(f"Data types of each column: \n{data.dtypes}")
+# Example usage of the DataVisualizer class
+if __name__ == "__main__":
+    # Set paths for the data and results
+    base_dir = os.path.abspath(os.path.dirname(__file__))  
+    data_folder = os.path.join(base_dir, "../../main_data")
+    cleaned_csv_file = os.path.join(data_folder, "cleaned_ml.csv")
+    results_dir = os.path.join(base_dir, "../../../results")
+
+    # Initialize the DataVisualizer object
+    visualizer = DataVisualizer(data_path=cleaned_csv_file, results_dir=results_dir)
+
+    # Generate and save visualizations
+    visualizer.plot_totalpremium_distribution()
+    visualizer.plot_correlation_heatmap()
+    visualizer.plot_pairwise_relationships()
+
+    # Display insights from EDA
+    visualizer.display_eda_insights()
