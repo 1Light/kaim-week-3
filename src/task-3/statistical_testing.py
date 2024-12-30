@@ -1,141 +1,97 @@
 import os
 import pandas as pd
-from scipy.stats import ttest_ind, chi2_contingency, zscore
+import scipy.stats as stats
 from datetime import datetime
 
-
 class StatisticalTesting:
-    def __init__(self, data_path, results_dir):
-        """
-        Initializes the StatisticalTesting object with the dataset and results directory.
-
-        :param data_path: Path to the cleaned data CSV file.
-        :param results_dir: Path to the directory where results will be saved.
-        """
-        self.data = pd.read_csv(data_path, low_memory=False)
-        self.results_dir = results_dir
-
-        # Ensure the results directory exists
+    def __init__(self, data_file, feature_column, target_column):
+        self.base_dir = os.path.abspath(os.path.dirname(__file__))
+        self.data_folder = os.path.join(self.base_dir, "../../main_data")
+        self.cleaned_csv_file = os.path.join(self.data_folder, data_file)
+        self.data = self.load_data()
+        
+        self.results_dir = os.path.join(self.base_dir, "../../results")
         os.makedirs(self.results_dir, exist_ok=True)
+        
+        self.statistical_test_dir = os.path.join(self.results_dir, "statistical_testing")
+        os.makedirs(self.statistical_test_dir, exist_ok=True)
 
-        # Create a subfolder for statistical testing results
-        self.testing_dir = os.path.join(self.results_dir, "statistical_testing")
-        os.makedirs(self.testing_dir, exist_ok=True)
+        # Define the feature and target columns
+        self.feature_column = feature_column
+        self.target_column = target_column
 
-    def log_test_results(self, results, test_name):
-        """
-        Logs the results of statistical tests into a file.
+    def load_data(self):
+        print(f"Loading data from {self.cleaned_csv_file}...")
+        try:
+            data = pd.read_csv(self.cleaned_csv_file, low_memory=False)
+            print("Data loaded successfully!")
+            return data
+        except FileNotFoundError:
+            print(f"Error: File not found at {self.cleaned_csv_file}")
+            exit()
 
-        :param results: Results to log.
-        :param test_name: The name of the statistical test performed.
-        """
+    def save_results(self, results, filename):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = os.path.join(self.testing_dir, f"{test_name}_results_{timestamp}.txt")
-        with open(log_file, "w") as file:
+        output_file = os.path.join(self.statistical_test_dir, f"{filename}_{timestamp}.txt")
+        with open(output_file, "w") as file:
             file.write(results)
-        print(f"Test results saved as: {log_file}")
+        print(f"Results saved as: {output_file}")
 
-    def perform_t_test(self, group_a, group_b, kpi_column):
-        """
-        Performs a t-test for numerical data between two groups.
+    def run_statistical_tests(self):
+        # Check if the target column exists
+        if self.target_column not in self.data.columns:
+            print(f"Error: Target column '{self.target_column}' not found in the data.")
+            return
+        
+        # Check if the feature column exists
+        if self.feature_column not in self.data.columns:
+            print(f"Error: Feature column '{self.feature_column}' not found in the data.")
+            return
+        
+        results = f"=== Statistical Testing for Feature: {self.feature_column} and Target: {self.target_column} ===\n"
+        
+        # Get data for the two groups in the feature column
+        unique_values = self.data[self.feature_column].unique()
+        
+        if len(unique_values) == 2:
+            group_a_value, group_b_value = unique_values
+            group_a_data = self.data[self.data[self.feature_column] == group_a_value]
+            group_b_data = self.data[self.data[self.feature_column] == group_b_value]
 
-        :param group_a: Data for Group A (Control Group).
-        :param group_b: Data for Group B (Test Group).
-        :param kpi_column: The column representing the KPI.
-        :return: A string summarizing the results.
-        """
-        t_stat, p_value = ttest_ind(group_a[kpi_column].dropna(), group_b[kpi_column].dropna(), equal_var=False)
-        result = f"T-Test Results for KPI: {kpi_column}\n"
-        result += f" - t-statistic: {t_stat:.4f}\n"
-        result += f" - p-value: {p_value:.4f}\n"
-        if p_value < 0.05:
-            result += " --> p-value < 0.05: Reject the null hypothesis. The feature has a statistically significant effect on the KPI.\n"
+            # Check if the target column is numeric
+            if self.data[self.target_column].dtype in ['int64', 'float64']:
+                # Perform a t-test for numeric data
+                t_stat, p_value = stats.ttest_ind(group_a_data[self.target_column].dropna(),
+                                                   group_b_data[self.target_column].dropna(), equal_var=False)
+                results += f"T-test for {self.target_column}: T-statistic: {t_stat:.4f}, P-value: {p_value:.4e}\n"
+                
+                if p_value < 0.05:
+                    results += "Conclusion: Reject the null hypothesis (the feature has a statistically significant impact on the KPI).\n"
+                else:
+                    results += "Conclusion: Fail to reject the null hypothesis (the feature does not have a significant impact on the KPI).\n"
+            
+            else:
+                # Perform a chi-squared test for categorical data
+                contingency_table = pd.crosstab(self.data[self.feature_column], self.data[self.target_column])
+                chi2_stat, p_value, _, _ = stats.chi2_contingency(contingency_table)
+                results += f"Chi-squared test for {self.target_column}: Chi-squared statistic: {chi2_stat:.4f}, P-value: {p_value:.4e}\n"
+                
+                if p_value < 0.05:
+                    results += "Conclusion: Reject the null hypothesis (the feature has a statistically significant impact on the KPI).\n"
+                else:
+                    results += "Conclusion: Fail to reject the null hypothesis (the feature does not have a significant impact on the KPI).\n"
         else:
-            result += " --> p-value >= 0.05: Fail to reject the null hypothesis. The feature does not have a statistically significant effect on the KPI.\n"
-        return result
+            results += f"Error: Feature column '{self.feature_column}' does not have exactly two unique values.\n"
 
-    def perform_chi_squared_test(self, group_a, group_b, kpi_column):
-        """
-        Performs a chi-squared test for categorical data between two groups.
+        # Save results
+        self.save_results(results, "statistical_testing_results")
 
-        :param group_a: Data for Group A (Control Group).
-        :param group_b: Data for Group B (Test Group).
-        :param kpi_column: The column representing the KPI.
-        :return: A string summarizing the results.
-        """
-        contingency_table = pd.crosstab(group_a[kpi_column], group_b[kpi_column])
-        chi2_stat, p_value, _, _ = chi2_contingency(contingency_table)
-        result = f"Chi-Squared Test Results for KPI: {kpi_column}\n"
-        result += f" - chi2-statistic: {chi2_stat:.4f}\n"
-        result += f" - p-value: {p_value:.4f}\n"
-        if p_value < 0.05:
-            result += " --> p-value < 0.05: Reject the null hypothesis. The feature has a statistically significant effect on the KPI.\n"
-        else:
-            result += " --> p-value >= 0.05: Fail to reject the null hypothesis. The feature does not have a statistically significant effect on the KPI.\n"
-        return result
-
-    def conduct_statistical_tests(self, feature_column, kpi_column, control_value, test_value):
-        """
-        Conducts statistical tests to evaluate the impact of a feature on the KPI.
-
-        :param feature_column: The feature column for segmentation.
-        :param kpi_column: The column representing the KPI.
-        :param control_value: The value for the control group.
-        :param test_value: The value for the test group.
-        """
-        if feature_column not in self.data.columns or kpi_column not in self.data.columns:
-            raise ValueError(f"Feature column '{feature_column}' or KPI column '{kpi_column}' not found in the dataset.")
-
-        # Segment data into control and test groups
-        group_a = self.data[self.data[feature_column] == control_value]
-        group_b = self.data[self.data[feature_column] == test_value]
-
-        result_summary = f"Statistical Testing Results:\n"
-        result_summary += f" - Feature: {feature_column}\n"
-        result_summary += f" - KPI: {kpi_column}\n"
-        result_summary += f" - Control Group Value: {control_value}\n"
-        result_summary += f" - Test Group Value: {test_value}\n"
-        result_summary += f" - Group A Size: {len(group_a)}\n"
-        result_summary += f" - Group B Size: {len(group_b)}\n\n"
-
-        # Choose the appropriate test based on KPI data type
-        if pd.api.types.is_numeric_dtype(self.data[kpi_column]):
-            result_summary += self.perform_t_test(group_a, group_b, kpi_column)
-        else:
-            result_summary += self.perform_chi_squared_test(group_a, group_b, kpi_column)
-
-        # Log the test results
-        self.log_test_results(result_summary, f"{feature_column}_vs_{kpi_column}")
-
-    def test_feature_impact(self, feature_column, kpi_column, control_value, test_value):
-        """
-        High-level method to test the statistical significance of a feature on the KPI.
-
-        :param feature_column: The feature column to test.
-        :param kpi_column: The column representing the KPI.
-        :param control_value: The value for the control group.
-        :param test_value: The value for the test group.
-        """
-        print(f"Conducting statistical tests for feature: {feature_column} on KPI: {kpi_column}")
-        self.conduct_statistical_tests(feature_column, kpi_column, control_value, test_value)
-
-
-# Example usage of the StatisticalTesting class
 if __name__ == "__main__":
-    # Set paths for the data and results
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    data_folder = os.path.join(base_dir, "../../main_data")
-    cleaned_csv_file = os.path.join(data_folder, "cleaned_ml.csv")
-    results_dir = os.path.join(base_dir, "../../../results")
-
-    # Initialize the StatisticalTesting object
-    statistical_testing = StatisticalTesting(data_path=cleaned_csv_file, results_dir=results_dir)
-
-    # Specify the feature and KPI for testing
-    feature_column = "CoverCategory"  # Example feature
-    kpi_column = "TotalPremium"  # Example KPI
-    control_value = "Basic"  # Control group value
-    test_value = "Premium"  # Test group value
-
-    # Perform statistical testing
-    statistical_testing.test_feature_impact(feature_column, kpi_column, control_value, test_value)
+    # Example usage:
+    # Test the feature 'CoverCategory' with the target column 'TotalPremium'
+    statistical_testing = StatisticalTesting(
+        data_file="cleaned_ml.csv",  
+        feature_column="CoverCategory",  
+        target_column="TotalPremium" 
+    )
+    statistical_testing.run_statistical_tests()
