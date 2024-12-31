@@ -2,33 +2,37 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
+from xgboost import XGBRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-import xgboost as xgb
-import matplotlib.pyplot as plt
-import seaborn as sns
 import os
 
-class ModelingTechniques:
-    def __init__(self, data):
-        # Assume data is pre-processed and passed as argument
-        self.data = data
-        # Identify non-numeric columns
+class ModelBuilder:
+    def __init__(self, data_path):
+        # Load and preprocess the data
+        self.data = pd.read_csv(data_path, low_memory=False)
+        self.preprocess_data()
+
+    def preprocess_data(self):
+        # Identify and convert non-numeric columns
         non_numeric_cols = self.data.select_dtypes(include=['object']).columns
         if len(non_numeric_cols) > 0:
             print(f"Converting non-numeric columns: {non_numeric_cols}")
-            # Convert date columns to datetime and extract features if necessary
             for col in non_numeric_cols:
                 if pd.to_datetime(self.data[col], errors='coerce').notna().all():
+                    # Convert date columns to ordinal values
                     self.data[col] = pd.to_datetime(self.data[col]).apply(lambda x: x.toordinal())
                 else:
-                    # Handle categorical data
+                    # Factorize categorical columns
                     self.data[col] = pd.factorize(self.data[col])[0]
 
-        # Drop 'TotalClaims' since it's empty and not used
-        self.X = self.data.drop(['TotalPremium'], axis=1)  # Drop only 'TotalPremium' from features
-        self.y = self.data['TotalPremium']  # Target: 'TotalPremium'
+        # Handle missing values (if necessary)
+        self.data.fillna(self.data.mean(), inplace=True)  # Replace missing numeric values with the mean
+        self.data.fillna(0, inplace=True)  # Replace missing categorical values with 0 (or use other strategies)
+
+        # Split features (X) and target variable (y)
+        self.X = self.data.drop(['TotalPremium'], axis=1) 
+        self.y = self.data['TotalPremium'] 
 
     def train_test_split_data(self):
         # Split the data into training and testing sets
@@ -42,13 +46,6 @@ class ModelingTechniques:
         y_pred = model.predict(X_test)
         self.evaluate_model(y_test, y_pred, model)
 
-    def decision_tree(self, X_train, X_test, y_train, y_test):
-        print("Training Decision Tree Model...")
-        model = DecisionTreeRegressor(random_state=42)
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-        self.evaluate_model(y_test, y_pred, model)
-
     def random_forest(self, X_train, X_test, y_train, y_test):
         print("Training Random Forest Model...")
         model = RandomForestRegressor(n_estimators=100, random_state=42)
@@ -58,7 +55,7 @@ class ModelingTechniques:
 
     def xgboost(self, X_train, X_test, y_train, y_test):
         print("Training XGBoost Model...")
-        model = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=100, random_state=42)
+        model = XGBRegressor(objective='reg:squarederror', n_estimators=100, random_state=42)
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         self.evaluate_model(y_test, y_pred, model)
@@ -72,26 +69,20 @@ class ModelingTechniques:
         print(f"R-squared: {r2:.4f}")
         print("-" * 50)
 
-    def run_all_models(self):
+    def run_models(self):
         X_train, X_test, y_train, y_test = self.train_test_split_data()
-        
         self.linear_regression(X_train, X_test, y_train, y_test)
-        self.decision_tree(X_train, X_test, y_train, y_test)
         self.random_forest(X_train, X_test, y_train, y_test)
         self.xgboost(X_train, X_test, y_train, y_test)
-
 
 if __name__ == "__main__":
     # Set the correct path for the dataset
     base_dir = os.path.abspath(os.path.dirname(__file__))
     data_folder = os.path.join(base_dir, "../../main_data")  # Update with your actual folder structure
-    data_file = os.path.join(data_folder, 'cleaned_ml.csv')
+    data_file = os.path.join(data_folder, 'cleaned_ml.csv')  # Ensure this is the correct file
 
-    # Load the data into a pandas DataFrame
-    data = pd.read_csv(data_file, low_memory=False)
+    # Initialize the ModelBuilder class with the data path
+    model_builder = ModelBuilder(data_file)
 
-    # Initialize the ModelingTechniques class with the data
-    modeler = ModelingTechniques(data)
-
-    # Run all models and evaluate performance
-    modeler.run_all_models()
+    # Run models and evaluate performance
+    model_builder.run_models()

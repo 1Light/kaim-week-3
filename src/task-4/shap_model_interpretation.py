@@ -1,12 +1,12 @@
 import pandas as pd
 import numpy as np
+import shap
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
-import seaborn as sns
 import os
 
-class FeatureImportanceAnalysis:
+class SHAPModelInterpretation:
     def __init__(self, data_path, target_column):
         # Load the dataset
         self.data = pd.read_csv(data_path, low_memory=False)
@@ -33,32 +33,33 @@ class FeatureImportanceAnalysis:
         X_train, X_test, y_train, y_test = train_test_split(self.X, self.y, test_size=0.3, random_state=42)
         return X_train, X_test, y_train, y_test
 
-    def feature_importance(self, X_train, X_test, y_train, y_test):
-        # Train a Random Forest model to evaluate feature importance
+    def train_model(self, X_train, y_train):
+        # Train a Random Forest model for regression
         model = RandomForestRegressor(n_estimators=100, random_state=42)
         model.fit(X_train, y_train)
-        
-        # Get feature importances
-        importances = model.feature_importances_
-        
-        # Sort features by importance
-        indices = np.argsort(importances)[::-1]
+        return model
 
-        # Plot the feature importances
-        plt.figure(figsize=(10, 6))
-        plt.title("Feature Importances")
-        plt.barh(range(X_train.shape[1]), importances[indices], align="center")
-        plt.yticks(range(X_train.shape[1]), self.X.columns[indices])
-        plt.xlabel("Relative Importance")
-        plt.show()
+    def interpret_with_shap(self, model, X_train):
+        # Create a SHAP explainer for the model
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_train)
 
-        # Display the feature importance
-        for f in range(X_train.shape[1]):
-            print(f"{self.X.columns[indices[f]]}: {importances[indices[f]]:.4f}")
+        # Plot the SHAP values for the features
+        shap.summary_plot(shap_values, X_train)
+
+        # Display the SHAP values for the first instance
+        shap.initjs()
+        shap.force_plot(explainer.expected_value[0], shap_values[0], X_train.iloc[0])
 
     def run_analysis(self):
+        # Train-test split
         X_train, X_test, y_train, y_test = self.train_test_split_data()
-        self.feature_importance(X_train, X_test, y_train, y_test)
+
+        # Train the model
+        model = self.train_model(X_train, y_train)
+
+        # Interpret the model with SHAP
+        self.interpret_with_shap(model, X_train)
 
 if __name__ == "__main__":
     # Set the correct path for the dataset
@@ -69,8 +70,8 @@ if __name__ == "__main__":
     # Define the target column for analysis (TotalPremium)
     target_column = 'TotalPremium'
 
-    # Initialize the FeatureImportanceAnalysis class with the data path and target column
-    feature_analyzer = FeatureImportanceAnalysis(data_file, target_column)
+    # Initialize the SHAPModelInterpretation class with the data path and target column
+    shap_interpreter = SHAPModelInterpretation(data_file, target_column)
 
-    # Run the feature importance analysis
-    feature_analyzer.run_analysis()
+    # Run the SHAP interpretation analysis
+    shap_interpreter.run_analysis()
