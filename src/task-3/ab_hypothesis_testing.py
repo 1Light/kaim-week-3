@@ -22,6 +22,7 @@ class ABHypothesisTesting:
         try:
             data = pd.read_csv(self.cleaned_csv_file, low_memory=False)
             print("Data loaded successfully!")
+            print(f"Data preview (first 5 rows):\n{data.head()}\n")
             return data
         except FileNotFoundError:
             print(f"Error: File not found at {self.cleaned_csv_file}")
@@ -44,6 +45,9 @@ class ABHypothesisTesting:
         groups = [self.data[self.data['Province'] == province]['TotalPremium'] for province in provinces]
         f_stat, p_value = stats.f_oneway(*groups)
 
+        print(f"Test: Risk Differences Across Provinces")
+        print(f"F-statistic: {f_stat:.4f}, P-value: {p_value:.4e}")
+
         results = (
             "=== Hypothesis Test: Risk Differences Across Provinces ===\n"
             f"F-statistic: {f_stat:.4f}\n"
@@ -61,6 +65,9 @@ class ABHypothesisTesting:
         zip_codes = self.data['PostalCode'].unique()
         groups = [self.data[self.data['PostalCode'] == zip_code]['TotalPremium'] for zip_code in zip_codes]
         f_stat, p_value = stats.f_oneway(*groups)
+
+        print(f"Test: Risk Differences Between Zip Codes")
+        print(f"F-statistic: {f_stat:.4f}, P-value: {p_value:.4e}")
 
         results = (
             "=== Hypothesis Test: Risk Differences Between Zip Codes ===\n"
@@ -81,6 +88,9 @@ class ABHypothesisTesting:
         groups = [self.data[self.data['PostalCode'] == zip_code]['ProfitMargin'] for zip_code in zip_codes]
         f_stat, p_value = stats.f_oneway(*groups)
 
+        print(f"Test: Margin Differences Between Zip Codes")
+        print(f"F-statistic: {f_stat:.4f}, P-value: {p_value:.4e}")
+
         results = (
             "=== Hypothesis Test: Margin Differences Between Zip Codes ===\n"
             f"F-statistic: {f_stat:.4f}\n"
@@ -99,6 +109,9 @@ class ABHypothesisTesting:
         female_risk = self.data[self.data['Gender'] == 'Female']['TotalPremium']
         t_stat, p_value = stats.ttest_ind(male_risk.dropna(), female_risk.dropna(), equal_var=False)
 
+        print(f"Test: Risk Differences Between Genders")
+        print(f"T-statistic: {t_stat:.4f}, P-value: {p_value:.4e}")
+
         results = (
             "=== Hypothesis Test: Risk Differences Between Genders ===\n"
             f"T-statistic: {t_stat:.4f}\n"
@@ -108,6 +121,7 @@ class ABHypothesisTesting:
         self.save_results(results, "risk_differences_between_genders")
 
     def run_tests(self):
+        print("Running all hypothesis tests...\n")
         self.test_risk_differences_across_provinces()
         self.test_risk_differences_between_zip_codes()
         self.test_margin_differences_between_zip_codes()

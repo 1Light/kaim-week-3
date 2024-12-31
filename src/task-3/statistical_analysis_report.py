@@ -26,6 +26,8 @@ class StatisticalAnalysisReport:
         try:
             data = pd.read_csv(self.cleaned_csv_file, low_memory=False)
             print("Data loaded successfully!")
+            # Display the first few rows of the data for a quick check
+            print("Sample data preview:\n", data.head())
             return data
         except FileNotFoundError:
             print(f"Error: File not found at {self.cleaned_csv_file}")
@@ -47,6 +49,10 @@ class StatisticalAnalysisReport:
         # Check the types of columns
         feature_data = self.data[self.feature_column]
         target_data = self.data[self.target_column]
+
+        # Print out the summary of the selected columns
+        print(f"Feature data summary:\n{feature_data.describe()}")
+        print(f"Target data summary:\n{target_data.describe()}")
 
         # Check if the feature is categorical or numerical
         if feature_data.dtype == 'object':  # Categorical feature
@@ -71,6 +77,9 @@ class StatisticalAnalysisReport:
     def analyze_and_report(self):
         # Perform statistical test
         statistical_results = self.perform_statistical_test()
+
+        # Print the statistical results to the terminal
+        print("\nStatistical Test Results:\n", statistical_results)
 
         # Interpret the results and write the report
         interpretation = f"\n=== Interpretation ===\n"

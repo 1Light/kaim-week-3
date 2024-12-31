@@ -27,6 +27,7 @@ class DataSegmentation:
         try:
             data = pd.read_csv(self.cleaned_csv_file, low_memory=False)
             print("Data loaded successfully!")
+            print(f"Data preview:\n{data.head()}")  # Preview first few rows
             return data
         except FileNotFoundError:
             print(f"Error: File not found at {self.cleaned_csv_file}")
@@ -65,7 +66,7 @@ class DataSegmentation:
         
         # Save results
         self.save_results(results, "statistical_equivalence_check")
-    
+
     def check_feature_values(self):
         # Check the unique values in the feature column to ensure correct segmentation
         unique_values = self.data[self.feature_column].unique()
@@ -82,10 +83,11 @@ class DataSegmentation:
         print(f"Group A and Group B data saved as group_a.csv and group_b.csv in the segmentation directory.")
 
     def run_segmentation(self):
+        print("Starting data segmentation process...\n")
         self.check_feature_values()  # Check feature column values
         self.check_statistical_equivalence()
         self.segment_data()
-
+        print("\nData segmentation process completed!")
 
 if __name__ == "__main__":
     # Example usage:

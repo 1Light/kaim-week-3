@@ -50,7 +50,7 @@ class ModelEvaluation:
 
     def xgboost(self, X_train, X_test, y_train, y_test):
         print("Evaluating XGBoost Regressor...")
-        model = XGBRegressor(use_label_encoder=False, eval_metric='logloss', random_state=42)
+        model = XGBRegressor(eval_metric='logloss', random_state=42)
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         self.evaluate_metrics(y_test, y_pred, model)
